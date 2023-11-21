@@ -1,0 +1,5 @@
+
+false_accuracy=[1,2,3,4,5]
+for i in false_accuracy:
+    print(i, end=', ')
+exit

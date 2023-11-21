@@ -16,7 +16,7 @@ import torch
 from options import args_parser
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details
+from utils import get_dataset, average_weights, exp_details, apply_dynamic_clipping
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -71,8 +71,9 @@ if __name__ == '__main__':
     print_every = 2
     val_loss_pre, counter = 0, 0
     # !!! change at here
-    has_attacker = 1 # 1 for 1/10 attacker ; 0 for non
-    use_clip = 2  # 2 for l2 norm; 1 for l1 norm 
+    has_attacker = 0 # 1 for 1/10 attacker ; 0 for non
+    use_pgd = 0  # 2 for l2 norm; 1 for l1 norm 
+    use_clip = 0  # 2 for l2 norm; 1 for l1 norm 
     clip= 4 # 0.0015(in n1 clip)
 
     for epoch in tqdm(range(args.epochs)):
@@ -93,7 +94,7 @@ if __name__ == '__main__':
                 w, loss = local_model.update_weights(
                     model=copy.deepcopy(global_model), global_round=epoch)
                 # use clip defense or not
-                if(use_clip != 0): new_weight = local_model.apply_pgd_weight(w, global_weights, use_clip, clip) 
+                if(use_pgd != 0): new_weight = local_model.apply_pgd_weight(w, global_weights, use_pgd, clip) 
                 else: new_weight = w
                 print("  loss:"+str(loss)+'\n')
                 # aggregate the weight and loss
@@ -107,14 +108,16 @@ if __name__ == '__main__':
                 w, loss = local_model.update_weights(
                     model=copy.deepcopy(global_model), global_round=epoch)
                 # use the same clip defense
-                if(use_clip != 0): new_weight = local_model.apply_pgd_weight(w, global_weights, use_clip, clip)
+                if(use_pgd != 0): new_weight = local_model.apply_pgd_weight(w, global_weights, use_pgd, clip)
                 else: new_weight = w
                 print("  loss:"+str(loss)+'\n')
                 local_weights.append(copy.deepcopy(new_weight))
                 local_losses.append(copy.deepcopy(loss))
         
+        temp_weight = local_weights
+        if(use_clip): temp_weight = apply_dynamic_clipping(temp_weight, global_weights, clip)
         # update global weights from clients
-        global_weights = average_weights(local_weights)
+        global_weights = average_weights(temp_weight)
 
         # update global weights
         global_model.load_state_dict(global_weights)
@@ -150,6 +153,13 @@ if __name__ == '__main__':
     print("|---- Avg Train Accuracy: {:.2f}%".format(100*train_accuracy[-1]))
     print("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
     print("|---- Test false Accuracy: {:.2f}%".format(100*test_fal_acc))
+    print("train acc each round")
+    for i in train_accuracy:
+        print('{:.2f}'.format(100*i), end=', ')
+    print("\nattack acc each round")
+    for i in false_accuracy:
+        print('{:.2f}'.format(100*i), end=', ')
+    
 
     # Saving the objects train_loss and train_accuracy:
     file_name = './save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'.\

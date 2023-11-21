@@ -113,6 +113,7 @@ class LocalUpdate(object):
                 w_copy[key] += old_weights[key]
             return w_copy
 
+        
     def inference(self, model):
         """ Returns the inference accuracy and loss.
         """

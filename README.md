@@ -1,5 +1,15 @@
 # Federated-Learning (PyTorch)
+Run the training
+```
+python src/federated_main.py --model=mlp --dataset=mnist --epochs=10 --num_users=10
+```
 
+Code that I changed
+- ./src/federated_main.py(74-76, 89-102)
+- ./src/update.py(89-114)
+- ./attack.py: To make malicious dataset
+
+## Original README
 Implementation of the vanilla federated learning paper : [Communication-Efficient Learning of Deep Networks from Decentralized Data](https://arxiv.org/abs/1602.05629).
 
 
@@ -29,8 +39,7 @@ python src/baseline_main.py --model=mlp --dataset=mnist --epochs=10
 ```
 python src/baseline_main.py --model=mlp --dataset=mnist --gpu=0 --epochs=10
 
-
-python src/federated_main.py --model=mlp --dataset=mnist --gpu=0 --epochs=10
+python src/federated_main.py --model=mlp --dataset=mnist  --epochs=10
 
 ```
 -----

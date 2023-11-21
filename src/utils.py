@@ -3,6 +3,7 @@
 # Python version: 3.6
 import os
 import copy
+import numpy as np
 import torch
 from torchvision import datasets, transforms
 from sampling import mnist_iid, mnist_noniid, mnist_noniid_unequal
@@ -87,6 +88,55 @@ def get_dataset(args):
 
     return train_dataset, test_dataset, false_dataset, user_groups
 
+def apply_dynamic_clipping(weights, old_weights, clip_value):
+    print("apply dynamic clipping")
+    client_delta_weights = copy.deepcopy(weights)
+    print(len(client_delta_weights))
+    l2_norms_per_client = []
+    for key in client_delta_weights[0].keys():
+        norm=[]
+        for i in range(len(client_delta_weights)):
+            client_delta_weights[i][key] -= old_weights[key]
+            layer = client_delta_weights[i][key].reshape(1,-1)
+            norm.append(layer)
+            # print(layer)
+        # print("norm")
+        # print(norm)
+        # print("norm0")
+        # print()
+        l2_norms_per_client.append(torch.norm(norm[0]))
+    # client_delta_weights = [[client_weights[i] - old_weights[i] for i in range(len(client_weights))] \
+    #                         for client_weights in weights] # clip delta
+    # l2_norms_per_client = [torch.norm(torch.cat([delta_weights[i].reshape(1,-1) \
+    #                                         for i in range(len(delta_weights))], axis=0)) \
+    #                     for delta_weights in client_delta_weights] # for norm calculation
+    median = np.median(l2_norms_per_client) # clients l2 norm number median
+    median_factor = clip_value # clip value
+
+    bound = median * median_factor
+
+    print(f"Effective bound: {bound}")
+    print(norm)
+    multipliers_per_client = [min((bound / norm).numpy(), 1.0) for norm in l2_norms_per_client]
+
+    # delta_multiplied = [delta_weights[i] * multiply if i in clip_layers else delta_weights[i] for i in
+            # range(len(delta_weights))]
+    # print(len(multipliers_per_client))
+    # print(len(client_delta_weights[0]))
+    j=0
+    delta_multiplied=[]
+    
+    for key in client_delta_weights[0].keys():
+        # for i in range(len(client_delta_weights[0][key])):     
+        #     print(len(client_delta_weights[0][key]))
+        # print(client_delta_weights[0][key])
+        # print(multipliers_per_client[j])
+        client_delta_weights[0][key] *= multipliers_per_client[j]
+        client_delta_weights[0][key] += old_weights[key]
+        j+=1
+
+    # Add back to global model to fit in other calculations
+    return client_delta_weights
 
 def average_weights(w):
     """
